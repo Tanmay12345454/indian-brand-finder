@@ -5,7 +5,25 @@ from bs4 import BeautifulSoup
 import re
 import pandas as pd
 
-# 🗂️ Known blogs listing Indian homegrown brands by category
+st.set_page_config(page_title="Indian Brand Sourcing Assistant", layout="wide")
+
+st.markdown("""
+<style>
+body {
+    background-color: #f6f6f6;
+}
+.title {
+    font-size: 36px;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# UI Title
+st.markdown("<div class='title'>🇮🇳 Indian Homegrown Brand Sourcing Assistant</div>", unsafe_allow_html=True)
+st.write("Search verified Indian brands by category, with real website links, emails, and sample prices.")
+
+# Brand Sources (trusted blog pages that list actual Indian brands)
 BLOG_SOURCES = {
     "skincare": [
         "https://www.thechannel46.com/style/beauty/20-homegrown-skincare-brands-to-support-in-2023/"
@@ -18,7 +36,7 @@ BLOG_SOURCES = {
     ]
 }
 
-# 🌐 Get links from blog
+# Extract links from blogs
 def extract_brand_links_from_blog(url):
     headers = {"User-Agent": "Mozilla/5.0"}
     brand_links = []
@@ -28,13 +46,13 @@ def extract_brand_links_from_blog(url):
         for a in soup.find_all("a", href=True):
             text = a.get_text(strip=True)
             href = a["href"]
-            if href.startswith("http") and len(text) > 3 and not any(x in href for x in ["facebook", "twitter", "instagram", "mailto"]):
+            if href.startswith("http") and len(text) > 3 and not any(x in href for x in ["facebook", "twitter", "instagram", "mailto", "pinterest", "whatsapp"]):
                 brand_links.append((text, href))
     except Exception as e:
         print(f"Error fetching blog: {e}")
     return brand_links
 
-# 📧 Try to extract contact info and ₹ pricing
+# Contact + price scraper
 def extract_contact_and_price(url):
     try:
         res = requests.get(url, timeout=5)
@@ -46,15 +64,11 @@ def extract_contact_and_price(url):
     except:
         return "Not found", "Not found"
 
-# 🚀 Streamlit App
-st.set_page_config(page_title="Indian Homegrown Brands", layout="wide")
-st.title("🇮🇳 Indian Homegrown Brand Explorer")
-st.markdown("Get real Indian brands with website, email & pricing info.")
+# Select category
+category = st.selectbox("Select brand category", list(BLOG_SOURCES.keys()))
 
-category = st.selectbox("Choose a category:", list(BLOG_SOURCES.keys()))
-
-if st.button("Find Indian Brands"):
-    with st.spinner("Fetching Indian brand websites from trusted sources..."):
+if st.button("Search Brands"):
+    with st.spinner("Fetching verified brand websites..."):
         brand_data = []
         for blog_url in BLOG_SOURCES[category]:
             links = extract_brand_links_from_blog(blog_url)
@@ -67,11 +81,12 @@ if st.button("Find Indian Brands"):
                     "Sample Price": price
                 })
 
-    if brand_data:
-        df = pd.DataFrame(brand_data).drop_duplicates(subset="Website")
-        st.success(f"Found {len(df)} Indian brands in {category.capitalize()}")
-        st.dataframe(df)
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download as CSV", csv, "indian_brands_list.csv", "text/csv")
-    else:
-        st.warning("No brands found. Try another category.")
+        if brand_data:
+            df = pd.DataFrame(brand_data).drop_duplicates(subset="Website")
+            st.success(f"Found {len(df)} verified Indian brands!")
+            st.dataframe(df)
+
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("Download CSV", csv, "indian_brands_verified.csv", "text/csv")
+        else:
+            st.warning("No valid brand links found. Try another category.")
